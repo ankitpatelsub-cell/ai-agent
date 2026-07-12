@@ -1,0 +1,13 @@
+{
+  "name": "ai-agent",
+  "version": "1.0.0",
+  "description": "",
+  "main": "agent-core.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
