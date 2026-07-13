@@ -1,4 +1,4 @@
-// dashauth.js — shared dashboard auth for hospital/hotel/manager/back-office/mfp.
+// dashauth.js — shared dashboard auth for hospital/hotel/manager/back-office.
 const crypto = require('crypto');
 const SECRET = process.env.ADMIN_SECRET || 'dev-only-change-me';
 function makeToken() {
