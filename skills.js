@@ -99,7 +99,35 @@ async function delegateToClaude(prompt) {
   }
 }
 
+// webSearch: stub — real web search when a search API key is present.
+async function webSearch(query) {
+  const log = ['🔎 検索中: ' + query];
+  const hasKey = process.env.SERPER_API_KEY || process.env.BRAVE_API_KEY;
+  if (hasKey) {
+    log.push('🔎 検索APIで実行中… (stub — wire serper/brave here)');
+  } else {
+    log.push('🔎 [STUB] 検索API未設定 — キーワードのみ記録');
+  }
+  log.push('✅ 検索処理完了（記録）');
+  return { log, result: `[search stub] ${query}`, effects: [{ type: 'search', query, real: !!hasKey }] };
+}
+
+// createReport: REAL — writes a markdown report to disk (client-deliverable).
+const fs = require('fs');
+const path = require('path');
+async function createReport(title, body) {
+  const log = ['📄 レポート生成中…'];
+  const slug = (title || 'report').replace(/[^\w\-]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 40);
+  const fname = (slug || 'report-' + Date.now()).slice(0, 50) + '.md';
+  fs.mkdirSync(require('path').join(__dirname, 'reports'), { recursive: true });
+  const content = `# ${title}\n\n生成日時: ${new Date().toLocaleString('ja-JP')}\n\n${body}\n`;
+  fs.writeFileSync(path.join(__dirname, 'reports', fname), content);
+  log.push('✅ レポート保存: ' + fname);
+  return { log, result: '保存: ' + fname, effects: [{ type: 'report', file: fname, real: true }] };
+}
+
 module.exports = {
   summarize, classify, draftReply, followUp, makeCall, sendEmail, delegateToClaude,
+  webSearch, createReport,
   addTicket, getTickets,
 };

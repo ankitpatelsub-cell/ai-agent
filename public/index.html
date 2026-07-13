@@ -9,29 +9,31 @@
 <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 <script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <style>
-  :root{--ink:#16263a;--blue:#1f5fae;--bg:#f6f8fb;--card:#fff;--muted:#5b6b7d;--line:#e3e9f0;--green:#2e9e5b;--amber:#b8860b}
+  :root{--ink:#16263a;--blue:#1f5fae;--bg:#f6f8fb;--card:#fff;--muted:#5b6b7d;--line:#e3e9f0;--green:#2e9e5b;--amber:#b8860b;--purple:#7a4fd0}
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:-apple-system,"Hiragino Kaku Gothic ProN","Noto Sans JP",system-ui,sans-serif;color:var(--ink);background:var(--bg);line-height:1.6}
-  .wrap{max-width:960px;margin:0 auto;padding:18px}
+  .wrap{max-width:980px;margin:0 auto;padding:18px}
   header{background:linear-gradient(135deg,#16263a,#1f5fae);color:#fff;padding:22px 18px}
   header h1{font-size:22px;font-weight:900}
   header p{opacity:.9;font-size:13px;margin-top:4px}
   .badge{display:inline-block;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.35);padding:3px 10px;border-radius:999px;font-size:11px;margin-top:8px;margin-right:6px}
   .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-top:14px}
-  textarea{width:100%;min-height:60px;border:1px solid var(--line);border-radius:10px;padding:10px;font-size:15px;font-family:inherit;resize:vertical}
+  textarea{width:100%;min-height:54px;border:1px solid var(--line);border-radius:10px;padding:10px;font-size:15px;font-family:inherit;resize:vertical}
   .examples{margin-top:8px;display:flex;flex-wrap:wrap;gap:6px}
   .chip{background:#eef3fa;color:var(--blue);border:1px solid #d6e2f5;border-radius:999px;padding:5px 11px;font-size:12px;cursor:pointer}
   button.go{margin-top:10px;background:var(--blue);color:#fff;font-weight:800;border:none;border-radius:10px;padding:12px 20px;font-size:15px;cursor:pointer}
-  .log{background:#0f1b2d;color:#cfe3ff;border-radius:10px;padding:12px;font-family:ui-monospace,Menlo,monospace;font-size:13px;white-space:pre-wrap;min-height:50px}
-  .result{background:#eafaf0;border:1px solid #bfe9cf;border-radius:10px;padding:12px;margin-top:10px;font-size:14px;white-space:pre-wrap}
-  .audit{font-size:12px;color:var(--muted);max-height:260px;overflow:auto}
-  .audit div{border-bottom:1px solid var(--line);padding:6px 0}
-  .tk{display:flex;justify-content:space-between;gap:8px;border:1px solid var(--line);border-radius:10px;padding:10px;margin-top:8px;background:#fff}
-  .tk .id{font-weight:800;color:var(--blue)}
-  .pri{font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px}
-  .high{background:#fde2e2;color:#c0392b}.medium{background:#fff4d6;color:var(--amber)}.low{background:#e3f3e8;color:var(--green)}
+  button.auto{background:var(--purple)}
+  .trace{font-family:ui-monospace,Menlo,monospace;font-size:13px}
+  .step{border-left:3px solid var(--line);padding:6px 10px;margin:6px 0;background:#fafcff;border-radius:0 8px 8px 0}
+  .step.think{border-color:var(--purple)} .step.act{border-color:var(--blue)} .step.observe{border-color:var(--green)} .step.done{border-color:var(--amber)}
+  .step b{font-size:11px;text-transform:uppercase;color:var(--muted)}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:760px){.grid2{grid-template-columns:1fr}}
+  .item{border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin-top:6px;font-size:13px;display:flex;justify-content:space-between}
+  .st{font-size:10px;padding:2px 7px;border-radius:999px;font-weight:700}
+  .pending{background:#fff4d6;color:var(--amber)} .processing{background:#e3edff;color:var(--blue)} .done{background:#e3f3e8;color:var(--green)}
   h3{font-size:14px;color:var(--muted);margin:14px 0 4px}
-  .eff{font-size:11px;color:#888;margin-top:4px}
+  .eff{font-size:11px;color:#888;margin-top:3px}
 </style>
 </head>
 <body>
@@ -40,28 +42,35 @@
 const {useState,useEffect} = React;
 function App(){
   const [task,setTask]=useState('');
-  const [log,setLog]=useState(''); const [result,setResult]=useState(''); const [skill,setSkill]=useState('');
-  const [effects,setEffects]=useState([]); const [audit,setAudit]=useState([]); const [tickets,setTickets]=useState([]);
+  const [trace,setTrace]=useState([]);
+  const [mem,setMem]=useState({followups:[],inbox:[],trace:[]});
   const [busy,setBusy]=useState(false);
-  const ex=['今日のチケットを要約して','T-101の客様へ返信を作成','優先度を分類して','田中商事へ電話でフォローアップ','Claude Codeに設計を考えてもらう','新規チケット：領収書印刷設定を変更'];
-  async function refresh(){ const s=await fetch('/api/state').then(r=>r.json()); setAudit(s.audit); setTickets(s.tickets); }
+  const ex=['今日のチケットを要約して','T-101の客様へ返信を作成して送信','田中商事へ電話でフォローアップ','優先度を分類して','新規チケット：領収書印刷設定を変更'];
+  async function refresh(){ const s=await fetch('/api/state').then(r=>r.json()); setMem(s); }
   useEffect(()=>{refresh();},[]);
   async function run(t){
-    if(!t.trim())return; setBusy(true); setLog(''); setResult(''); setEffects([]);
+    if(!t.trim())return; setBusy(true); setTrace([]);
     try{
       const r=await fetch('/api/run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({task:t})});
-      const d=await r.json(); setLog(d.log.join('\n')); setResult(d.result); setSkill(d.skill); setEffects(d.effects||[]);
-    }catch(e){ setLog('エラー: '+e.message); }
+      const d=await r.json();
+      // animate steps
+      for(const s of d.trace){ setTrace(prev=>[...prev,s]); await new Promise(res=>setTimeout(res,350)); }
+    }catch(e){ setTrace([{tool:'error',result:e.message}]); }
     setBusy(false); refresh();
   }
+  async function addInbox(t){ if(!t.trim())return; await fetch('/api/inbox',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({task:t})}); setTask(''); refresh(); }
+  async function runAuto(){ setBusy(true); try{ await fetch('/api/autonomous',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({max:5})}); }catch(e){} setBusy(false); refresh(); }
+  const [rq,setRq]=useState(''); const [rhits,setRhits]=useState([]);
+  async function doRecall(){ const r=await fetch('/api/recall?q='+encodeURIComponent(rq)).then(x=>x.json()); setRhits(r.hits||[]); }
   return (
     <div>
       <header><div className="wrap" style={{padding:0}}>
         <h1>🤖 Back-Office AI Agent</h1>
-        <p>自律型バックオフィス担当者（日本向け）</p>
-        <span className="badge">LLM: OpenRouter (tencent/hy3:free)</span>
-        <span className="badge">電話/メール: STUB（キー設定で実行）</span>
-        <span className="badge">Claude Code委任: 検出時に実行</span>
+        <p>自律型・ツール呼び出しループ（Think → Act → Observe）</p>
+        <span className="badge">LLM: OpenRouter tencent/hy3:free</span>
+        <span className="badge">電話/メール: STUB</span>
+        <span className="badge">メモリ: 永続化(JSON)</span>
+        <span className="badge" style={{background:'#e3f3e8',borderColor:'#bfe9cf',color:'#2e9e5b'}}>自律スケジューラ: 起動中(30s)</span>
       </div></header>
       <div className="wrap">
         <div className="card">
@@ -69,15 +78,27 @@ function App(){
           <textarea value={task} onChange={e=>setTask(e.target.value)} placeholder="例：今日のチケットを要約して"></textarea>
           <div className="examples">{ex.map((e,i)=><span key={i} className="chip" onClick={()=>{setTask(e);run(e);}}>{e}</span>)}</div>
           <button className="go" disabled={busy} onClick={()=>run(task)}>{busy?'実行中…':'実行 ▶'}</button>
+          <button className="go auto" disabled={busy} onClick={runAuto} style={{marginLeft:8}}>自律実行（受信箱）</button>
         </div>
-        {log&&<div className="card"><h3 style={{marginTop:0}}>実行ログ（{skill}）</h3><div className="log">{log}</div></div>}
-        {result&&<div className="card"><h3 style={{marginTop:0}}>結果</h3><div className="result">{result}</div>
-          {effects.length>0&&<div className="eff">{effects.map((e,i)=><div key={i}>▪ {e.type}{e.real?' ✅実行':' ⏸記録のみ'}</div>)}</div>}</div>}
-        <div className="card"><h3 style={{marginTop:0}}>チケット（Backlog風）</h3>
-          <div>{tickets.map(t=>(<div className="tk" key={t.id}><div><span className="id">{t.id}</span> · {t.subject}<br/><small style={{color:'#5b6b7d'}}>{t.from}</small></div><span className={'pri '+t.priority}>{t.priority}</span></div>))}</div>
-        </div>
-        <div className="card"><h3 style={{marginTop:0}}>監査ログ（Audit Trail）</h3>
-          <div className="audit">{audit.map((a,i)=><div key={i}>[{a.ts}] {a.type} {a.skill||''} {a.result?('→ '+String(a.result).slice(0,60)):''}</div>)}</div>
+        {trace.length>0&&<div className="card"><h3 style={{marginTop:0}}>思考プロセス（エージェントループ）</h3>
+          <div className="trace">{trace.map((s,i)=><div key={i} className={'step '+s.tool}><b>{s.tool}{s.reflection&&s.reflection!=='OK'?' ⚠️':''}</b><div>{s.result}</div>{s.reflection&&s.reflection!=='OK'&&<div className="eff">↳ reflect: {s.reflection}</div>}{s.effects&&s.effects.length>0&&<div className="eff">{s.effects.map((e,j)=><div key={j}>▪ {e.type}{e.real?' ✅':' ⏸'}</div>)}</div>}</div>)}</div>
+        </div>}
+        <div className="grid2">
+          <div className="card"><h3 style={{marginTop:0}}>受信箱（Inbox）</h3>
+            <div className="examples" style={{marginTop:0}}><span className="chip" onClick={()=>addInbox('月次レポートを作成して送信')}>＋ サンプル追加</span></div>
+            <input className="chip" style={{border:'1px solid #d6e2f5',width:'100%',marginTop:8,padding:8}} placeholder="受信箱に追加…" onKeyDown={e=>{if(e.key==='Enter')addInbox(e.target.value);}} />
+            {mem.inbox&&mem.inbox.map((t,i)=><div key={i} className="item"><span>{t.task}</span><span className={'st '+t.status}>{t.status}</span></div>)}
+          </div>
+          <div className="card"><h3 style={{marginTop:0}}>フォローアップ予定</h3>
+            {(mem.followups&&mem.followups.length>0)?mem.followups.map((f,i)=><div key={i} className="item"><span>{f.ticketId} · {f.minutes}分後</span><span className={'st '+(f.done?'done':'pending')}>{f.done?'済':'予定'}</span></div>):<small style={{color:'#5b6b7d'}}>なし</small>}
+            <h3>監査トレース（最新10件）</h3>
+            {(mem.trace||[]).slice(0,10).map((a,i)=><div key={i} className="item" style={{fontSize:11}}><span>[{a.type}] {a.tool||a.task||''}</span></div>)}
+          </div>
+          <div className="card"><h3 style={{marginTop:0}}>メモリ検索（Recall）</h3>
+            <input className="chip" style={{border:'1px solid #d6e2f5',width:'100%',marginTop:4,padding:8}} placeholder="キーワードで検索…" value={rq} onChange={e=>setRq(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')doRecall();}} />
+            <span className="chip" style={{marginTop:6}} onClick={doRecall}>検索</span>
+            {rhits.map((h,i)=><div key={i} className="item" style={{fontSize:11}}><span>[{h.kind}] {h.text}</span></div>)}
+          </div>
         </div>
       </div>
     </div>
