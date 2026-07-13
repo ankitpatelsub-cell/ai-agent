@@ -34,23 +34,27 @@ function startScheduler() {
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://localhost');
-  if (req.method === 'POST' && url.pathname === '/api/run') {
+  async function readBody() {
     let b = ''; for await (const c of req) b += c;
-    const task = (JSON.parse(b).task || '').trim();
+    try { return JSON.parse(b || '{}'); } catch { return {}; }
+  }
+  if (req.method === 'POST' && url.pathname === '/api/run') {
+    const body = await readBody();
+    const task = (body.task || '').trim();
     if (!task) return send(res, 400, { error: 'no task' });
     const r = await runTask(task);
     return send(res, 200, { trace: r.trace });
   }
   if (req.method === 'POST' && url.pathname === '/api/inbox') {
-    let b = ''; for await (const c of req) b += c;
-    const task = (JSON.parse(b).task || '').trim();
+    const body = await readBody();
+    const task = (body.task || '').trim();
     if (!task) return send(res, 400, { error: 'no task' });
     mem.addInbox(task);
     return send(res, 200, { ok: true, inbox: getMemory().inbox.length });
   }
   if (req.method === 'POST' && url.pathname === '/api/autonomous') {
-    let b = ''; for await (const c of req) b += c;
-    const max = (JSON.parse(b).max || 5);
+    const body = await readBody();
+    const max = (body.max || 5);
     const done = await runAutonomous(max);
     return send(res, 200, { done });
   }
