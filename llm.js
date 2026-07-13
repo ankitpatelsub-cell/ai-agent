@@ -1,7 +1,19 @@
 // llm.js — OpenRouter chat with tool-calling support + mock fallback.
-// Real: when OPENROUTER_API_KEY set, supports multi-turn tool-calling loop.
+// Real: when OPENROUTER_API_KEY set (from .env), supports multi-turn tool-calling.
 // Mock: deterministic planner so the agent runs with zero cost/keys.
 const fs = require('fs');
+const path = require('path');
+
+// Minimal .env loader (zero dependency).
+try {
+  const envPath = path.join(__dirname, '.env');
+  if (fs.existsSync(envPath)) {
+    for (const line of fs.readFileSync(envPath, 'utf8').split('\n')) {
+      const m = line.match(/^\s*([\w.-]+)\s*=\s*(.*)\s*$/);
+      if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^["']|["']$/g, '');
+    }
+  }
+} catch {}
 
 async function chat(messages, { json = false } = {}) {
   const key = process.env.OPENROUTER_API_KEY;
