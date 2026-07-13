@@ -7,6 +7,7 @@ const mem = require('./memory');
 
 const PUBLIC = path.join(__dirname, 'public');
 const MIME = { '.html': 'text/html', '.js': 'application/javascript', '.css': 'text/css', '.json': 'application/json' };
+const { limited } = require('./ratelimit');
 
 function send(res, code, body, type = 'application/json') {
   res.writeHead(code, { 'Content-Type': type });
@@ -34,6 +35,7 @@ function startScheduler() {
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://localhost');
+  if (req.method === 'POST' && limited(req.socket.remoteAddress)) return send(res, 429, { error: 'rate limit' });
   async function readBody() {
     let b = ''; for await (const c of req) b += c;
     try { return JSON.parse(b || '{}'); } catch { return {}; }
