@@ -29,6 +29,7 @@ button{width:100%;height:42px;background:#1f5fae;color:#fff;border:none;border-r
 <body><div class="box"><h3>🔐 Staff login</h3>
 <input id="p" type="password" placeholder="admin password"><button onclick="go()">Login</button><div id="e"></div></div>
 <script>async function go(){const r=await fetch('/api/dash-login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:p.value})});
-if(r.ok){const d=await r.json();localStorage.setItem('dash_token',d.token);location.href=location.pathname;}
-else e.textContent='wrong password';}</script></body></html>`;
+if(r.ok){const d=await r.json();document.cookie='dash='+d.token+';path=/;max-age=43200;samesite=lax';localStorage.setItem('dash_token',d.token);location.href=location.pathname;}
+else e.textContent='wrong password';}
+p.addEventListener('keydown',function(ev){if(ev.key==='Enter')go();});</script></body></html>`;
 module.exports = { makeToken, checkToken, checkPass, LOGIN_HTML };
