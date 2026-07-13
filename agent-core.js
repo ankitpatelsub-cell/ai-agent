@@ -25,6 +25,8 @@ function planMock(task) {
     steps.push({ tool: 'schedule_followup', args: { ticket_id: 'T-101', minutes: 1 } });
   } else if (t.includes('優先') || t.includes('分類') || t.includes('classif')) {
     steps.push({ tool: 'classify_priority', args: {} });
+  } else if (t.includes('専門') || t.includes('委任') || t.includes('delegate') || t.includes('担当')) {
+    steps.push({ tool: 'delegate_specialist', args: { role: 'Japanese support specialist', task } });
   } else if (t.includes('レポート') || t.includes('report') || t.includes('資料')) {
     steps.push({ tool: 'summarize_tickets', args: {} });
     steps.push({ tool: 'create_report', args: { title: '月次バックオフィスレポート', body: 'チケット要約と対応状況を記載。' } });

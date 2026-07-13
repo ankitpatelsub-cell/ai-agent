@@ -39,6 +39,11 @@ const TOOL_SCHEMAS = [
     parameters: { type: 'object', properties: { description: { type: 'string' } }, required: ['description'] },
   },
   {
+    name: 'delegate_specialist',
+    description: 'Delegate a subtask to a focused specialist agent (e.g. Japanese support, billing). Provide role and task.',
+    parameters: { type: 'object', properties: { role: { type: 'string' }, task: { type: 'string' } }, required: ['role', 'task'] },
+  },
+  {
     name: 'web_search',
     description: 'Search the web for information (STUB unless a search API key is set). Provide query.',
     parameters: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] },
@@ -78,6 +83,7 @@ async function dispatch(toolName, args = {}, m) {
     case 'recall': { const hits = m ? m.recall(args.query || '') : []; return { result: hits.length ? hits.map(h => `[${h.kind}] ${h.text}`).join('\n') : '記録なし', effects: [] }; }
     case 'web_search': { const r = await S.webSearch(args.query || ''); return { result: r.result, effects: r.effects }; }
     case 'create_report': { const r = await S.createReport(args.title || 'report', args.body || ''); return { result: r.result, effects: r.effects }; }
+    case 'delegate_specialist': { const r = await S.delegateSpecialist(args.role || 'specialist', args.task || ''); return { result: r.result, effects: r.effects }; }
     case 'think': return { result: '(thought) ' + (args.note || ''), effects: [] };
     default: return { result: 'unknown tool: ' + toolName, effects: [] };
   }

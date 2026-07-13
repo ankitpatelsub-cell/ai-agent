@@ -99,6 +99,23 @@ async function delegateToClaude(prompt) {
   }
 }
 
+// delegateSpecialist: routes a subtask to a focused LLM persona (manager→worker).
+// Real when key set (calls chat with a specialist system prompt); mock otherwise.
+async function delegateSpecialist(role, task) {
+  const log = ['🧩 専門エージェントに委任: ' + role];
+  const key = process.env.OPENROUTER_API_KEY;
+  if (key) {
+    const out = await chat([
+      { role: 'system', content: `You are a specialist: ${role}. Reply in Japanese, concise.` },
+      { role: 'user', content: task },
+    ]);
+    log.push('✅ 専門エージェント完了');
+    return { log, result: out, effects: [{ type: 'specialist', role }] };
+  }
+  log.push('🧩 [STUB] 専門エージェント: ' + role + ' → ' + task.slice(0, 30));
+  return { log, result: `[${role}] ${task}`, effects: [{ type: 'specialist', role, real: false }] };
+}
+
 // webSearch: stub — real web search when a search API key is present.
 async function webSearch(query) {
   const log = ['🔎 検索中: ' + query];
@@ -128,6 +145,6 @@ async function createReport(title, body) {
 
 module.exports = {
   summarize, classify, draftReply, followUp, makeCall, sendEmail, delegateToClaude,
-  webSearch, createReport,
+  webSearch, createReport, delegateSpecialist,
   addTicket, getTickets,
 };
