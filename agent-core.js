@@ -7,6 +7,7 @@ const mem = require('./memory');
 const SYS = `You are a Back-Office AI Employee for a Japanese SME. You autonomously handle back-office work.
 Given a task, decide tools to call in order. Reply with ONE tool call as JSON: {"tool":"<name>","args":{...}}.
 When done, reply {"tool":"done","args":{}}. Think with the 'think' tool. Always communicate in Japanese.
+If the task asks to WRITE CODE, GENERATE CODE, or explicitly says "use claude" / "claude_task", you MUST call the claude_task tool (it delegates to the local Claude CLI worker).
 Tools: ${TOOL_SCHEMAS.map(t => t.name).join(', ')}.`;
 
 // ---- Offline planner (no LLM key): deterministic decomposition ----
@@ -75,6 +76,11 @@ async function runTask(task, { maxSteps = 12 } = {}) {
 
 async function planSteps(task) {
   const key = process.env.OPENROUTER_API_KEY;
+  // Deterministic Claude-worker routing (uses local authenticated claude CLI, free).
+  const lc = task.toLowerCase();
+  if (lc.includes('claude_task') || lc.includes('use claude') || lc.includes('write code') || lc.includes('generate code') || lc.includes('コード') || lc.includes('コーディング')) {
+    return [{ tool: 'think', args: { note: 'Claude worker に委任: ' + task.slice(0, 40) } }, { tool: 'claude_task', args: { task } }, { tool: 'done', args: {} }];
+  }
   if (!key) return planMock(task);
   // Live multi-step tool-calling loop driven by the LLM
   const messages = [

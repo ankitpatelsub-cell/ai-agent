@@ -59,6 +59,10 @@ const TOOL_SCHEMAS = [
     parameters: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] },
   },
   {
+    name: 'claude_task',
+    description: 'Delegate a hard coding/research/writing task to the local Claude CLI worker (already authenticated). Use for tasks needing strong reasoning or code generation. Provide task.',
+    parameters: { type: 'object', properties: { task: { type: 'string', description: 'Detailed task for Claude' } }, required: ['task'] } },
+  {
     name: 'think',
     description: 'Record a reasoning step (chain-of-thought) without taking external action. Use to plan.',
     parameters: { type: 'object', properties: { note: { type: 'string' } }, required: ['note'] },
@@ -84,6 +88,11 @@ async function dispatch(toolName, args = {}, m) {
     case 'web_search': { const r = await S.webSearch(args.query || ''); return { result: r.result, effects: r.effects }; }
     case 'create_report': { const r = await S.createReport(args.title || 'report', args.body || ''); return { result: r.result, effects: r.effects }; }
     case 'delegate_specialist': { const r = await S.delegateSpecialist(args.role || 'specialist', args.task || ''); return { result: r.result, effects: r.effects }; }
+    case 'claude_task': {
+      const { claudeTask } = require('./claude_worker');
+      const r = claudeTask(args.task || '', { timeout: 180 });
+      return { result: r.ok ? r.text : r.text, effects: [] };
+    }
     case 'think': return { result: '(thought) ' + (args.note || ''), effects: [] };
     default: return { result: 'unknown tool: ' + toolName, effects: [] };
   }
