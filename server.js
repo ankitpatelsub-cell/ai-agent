@@ -69,6 +69,11 @@ const server = http.createServer(async (req, res) => {
   if (req.method === 'GET' && url.pathname === '/api/state') {
     return send(res, 200, getMemory());
   }
+  if (req.method === 'GET' && url.pathname === '/api/overview') {
+    const m = getMemory();
+    const runs = (m.inbox || []).length + (m.followups || []).filter(f => f.done).length;
+    return send(res, 200, { runs, tickets: (m.followups || []).length, inbox: (m.inbox || []).length });
+  }
   if (req.method === 'POST' && url.pathname === '/api/dash-login') {
     const b = await readBody();
     if (dash.checkPass(b.password)) return send(res, 200, { token: dash.makeToken() });
