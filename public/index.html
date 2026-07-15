@@ -45,7 +45,11 @@ function App(){
   const [trace,setTrace]=useState([]);
   const [mem,setMem]=useState({followups:[],inbox:[],trace:[]});
   const [busy,setBusy]=useState(false);
-  const ex=['今日のチケットを要約して','T-101の客様へ返信を作成して送信','田中商事へ電話でフォローアップ','優先度を分類して','新規チケット：領収書印刷設定を変更'];
+  const [settings,setSettings]=useState({provider:'claude',openrouter_model:'',claude_cli:true,openrouter_key:'missing'});
+  const [orModel,setOrModel]=useState('');
+  async function loadSettings(){ try{ const s=await fetch('/api/settings').then(r=>r.json()); setSettings(s); setOrModel(s.openrouter_model||''); }catch{} }
+  async function applyProvider(p, model){ const body={provider:p}; if(model)body.openrouter_model=model; try{ const s=await fetch('/api/set-provider',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}).then(r=>r.json()); setSettings(s); }catch{} }
+  useEffect(()=>{refresh();loadSettings();},[]);
   async function refresh(){ const s=await fetch('/api/state').then(r=>r.json()); setMem(s); }
   useEffect(()=>{refresh();},[]);
   async function run(t){
@@ -67,7 +71,7 @@ function App(){
       <header><div className="wrap" style={{padding:0}}>
         <h1>🤖 Back-Office AI Agent</h1>
         <p>自律型・ツール呼び出しループ（Think → Act → Observe）</p>
-        <span className="badge">LLM: OpenRouter tencent/hy3:free</span>
+        <span className="badge">LLM: {settings.provider==='claude'?'Local Claude CLI (free)':settings.provider==='openrouter'?'OpenRouter':'Auto (Claude↔OpenRouter)'}</span>
         <span className="badge">電話/メール: STUB</span>
         <span className="badge">メモリ: 永続化(JSON)</span>
         <span className="badge" style={{background:'#e3f3e8',borderColor:'#bfe9cf',color:'#2e9e5b'}}>自律スケジューラ: 起動中(30s)</span>
@@ -79,6 +83,22 @@ function App(){
           <div className="examples">{ex.map((e,i)=><span key={i} className="chip" onClick={()=>{setTask(e);run(e);}}>{e}</span>)}</div>
           <button className="go" disabled={busy} onClick={()=>run(task)}>{busy?'実行中…':'実行 ▶'}</button>
           <button className="go auto" disabled={busy} onClick={runAuto} style={{marginLeft:8}}>自律実行（受信箱）</button>
+        </div>
+        <div className="card">
+          <h3 style={{marginTop:0}}>🧠 Model Settings <span style={{fontWeight:400,fontSize:11,color:'#5b6b7d'}}>（live switch）</span></h3>
+          <div className="examples" style={{marginTop:6}}>
+            <span className={"chip"+(settings.provider==='claude'?' chip-on':'')} style={(settings.provider==='claude')?{background:'#1f5fae',color:'#fff'}:{}} onClick={()=>applyProvider('claude')}>Claude (free)</span>
+            <span className={"chip"+(settings.provider==='auto'?' chip-on':'')} style={(settings.provider==='auto')?{background:'#1f5fae',color:'#fff'}:{}} onClick={()=>applyProvider('auto')}>Auto (failover)</span>
+            <span className={"chip"+(settings.provider==='openrouter'?' chip-on':'')} style={(settings.provider==='openrouter')?{background:'#1f5fae',color:'#fff'}:{}} onClick={()=>applyProvider('openrouter',orModel)}>OpenRouter</span>
+          </div>
+          <div style={{marginTop:10,display:'flex',gap:8,alignItems:'center'}}>
+            <input className="chip" style={{border:'1px solid #d6e2f5',flex:1,padding:8}} placeholder="OpenRouter model (e.g. anthropic/claude-sonnet-4)" value={orModel} onChange={e=>setOrModel(e.target.value)} />
+            <button className="go" style={{marginTop:0,padding:'8px 14px',fontSize:13}} onClick={()=>applyProvider(settings.provider,orModel)}>Save</button>
+          </div>
+          <div style={{fontSize:11,color:'#5b6b7d',marginTop:8}}>
+            Claude CLI: {settings.claude_cli?'✅ available':'❌'} · OpenRouter key: {settings.openrouter_key==='set'?'✅ set':'⚠️ missing'} {settings.openrouter_model&&<>· model: <code>{settings.openrouter_model}</code></>}
+            <br/>Auto mode fails over Claude↔OpenRouter on token/rate-limit.
+          </div>
         </div>
         {trace.length>0&&<div className="card"><h3 style={{marginTop:0}}>思考プロセス（エージェントループ）</h3>
           <div className="trace">{trace.map((s,i)=><div key={i} className={'step '+s.tool}><b>{s.tool}{s.reflection&&s.reflection!=='OK'?' ⚠️':''}</b><div>{s.result}</div>{s.reflection&&s.reflection!=='OK'&&<div className="eff">↳ reflect: {s.reflection}</div>}{s.effects&&s.effects.length>0&&<div className="eff">{s.effects.map((e,j)=><div key={j}>▪ {e.type}{e.real?' ✅':' ⏸'}</div>)}</div>}</div>)}</div>
