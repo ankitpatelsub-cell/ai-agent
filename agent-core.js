@@ -1,6 +1,7 @@
 // agent-core.js — agentic loop with reflection + real tool-calling.
 // Loop: THINK -> choose tool -> ACT -> OBSERVE -> REFLECT -> repeat until done.
 const { chat, chatWithTools } = require('./llm');
+const { complete } = require('/root/shared/llm_bridge');
 const { TOOL_SCHEMAS, dispatch } = require('./tools');
 const mem = require('./memory');
 
@@ -74,12 +75,42 @@ async function runTask(task, { maxSteps = 12 } = {}) {
   return { trace, memory: mem.getState() };
 }
 
+// Plan the tool sequence using the local Claude CLI (free, authenticated).
+// Falls back to mock planner if Claude is unavailable.
+async function planWithClaude(task) {
+  const toolList = TOOL_SCHEMAS.map(t => `- ${t.name}: ${t.description}`).join('\n');
+  const prompt = `You are a back-office AI employee. Given the task, pick a sequence of tool calls (max 4).
+Available tools:\n${toolList}
+Respond as a JSON array of objects {tool, args:{...}} ending with {tool:"done",args:{}}.
+Only use the tool names above. Task: ${task}`;
+  try {
+    const r = await complete(prompt, { model: 'sonnet' });
+    if (r.ok) {
+      const m = r.text.match(/\[[\s\S]*\]/);
+      if (m) {
+        const arr = JSON.parse(m[0]);
+        if (Array.isArray(arr) && arr.length) return arr.map(s => ({ tool: s.tool, args: s.args || {} }));
+      }
+    }
+  } catch {}
+  return planMock(task);
+}
+
 async function planSteps(task) {
   const key = process.env.OPENROUTER_API_KEY;
+  const provider = (process.env.MODEL_PROVIDER || 'auto').toLowerCase();
   // Deterministic Claude-worker routing (uses local authenticated claude CLI, free).
   const lc = task.toLowerCase();
   if (lc.includes('claude_task') || lc.includes('use claude') || lc.includes('write code') || lc.includes('generate code') || lc.includes('コード') || lc.includes('コーディング')) {
     return [{ tool: 'think', args: { note: 'Claude worker に委任: ' + task.slice(0, 40) } }, { tool: 'claude_task', args: { task } }, { tool: 'done', args: {} }];
+  }
+  // Provider selection
+  if (provider === 'claude') return planWithClaude(task);
+  if (provider === 'openrouter') {
+    if (!key) return planMock(task);
+  } else if (provider === 'auto') {
+    // if OpenRouter key + model set, use it; else Claude CLI
+    if (!(key && process.env.OPENROUTER_MODEL)) return planWithClaude(task);
   }
   if (!key) return planMock(task);
   // Live multi-step tool-calling loop driven by the LLM
